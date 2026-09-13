@@ -1,6 +1,6 @@
 [project]
 name = "agent-from-zero"
-version = "0.0.3"
+version = "0.1.1"
 description = "Inventory & Quote Agent, hand-rolled one commit at a time -- from a single chat completion to a production-grade Agent."
 requires-python = ">=3.11"
 dependencies = [
