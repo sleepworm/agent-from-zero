@@ -19,7 +19,7 @@ pytest                 # 跑测试（全部用 mock，不需要真实 API Key）
 
 | Phase | 主题 | 状态 |
 |---|---|---|
-| 0 | Hello LLM（[0.1](docs/00-01-basic-chat.md) 完成，0.2/0.3 待做） | |
+| 0 | Hello LLM（[0.1](docs/00-01-basic-chat.md) / [0.2](docs/00-02-error-handling.md) 完成，0.3 待做） | |
 | 1 | 第一个 Tool：查库存 | |
 | 2 | 多 Tool + 自己实现 Agent Loop | |
 | 3 | Tool Validation | |

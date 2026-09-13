@@ -1,5 +1,9 @@
 from unittest.mock import MagicMock
 
+import httpx2
+import openai
+import pytest
+
 from src.agent import llm
 
 
@@ -13,6 +17,16 @@ def _fake_client(response_text: str) -> MagicMock:
     fake_client = MagicMock()
     fake_client.chat.completions.create.return_value = fake_response
     return fake_client
+
+
+def _client_raising(error: Exception) -> MagicMock:
+    fake_client = MagicMock()
+    fake_client.chat.completions.create.side_effect = error
+    return fake_client
+
+
+def _fake_request() -> httpx2.Request:
+    return httpx2.Request("POST", "https://api.deepseek.com/chat/completions")
 
 
 def test_chat_returns_the_model_text(monkeypatch):
@@ -59,3 +73,67 @@ def test_get_client_reads_api_key_from_env(monkeypatch):
     assert client.api_key == "test-key-123"
     assert client.base_url is not None
     llm._client = None  # 用完清理，避免影响后续测试
+
+
+class TestFailureClassification:
+    """
+    三种失败模式都在 docs/00-02-error-handling.md 的 Break It 一节里真实触发过、
+    观察过原始异常类型和信息，这里只验证"分类逻辑本身对不对"：给它一个真实构造
+    出来的 openai 异常，看 chat() 有没有把它转换成我们自己的类型，同时保留住
+    原始的错误信息。不在测试里重新触发真实的网络故障——那样会让测试变慢、
+    变得不确定，真实环境已经在 Break It 一节验证过现象是真的。
+    """
+
+    def test_authentication_error_is_reclassified(self, monkeypatch):
+        response = httpx2.Response(401, request=_fake_request())
+        original = openai.AuthenticationError(
+            "Authentication Fails, Your api key: ****0000 is invalid",
+            response=response,
+            body=None,
+        )
+        monkeypatch.setattr(llm, "get_client", lambda: _client_raising(original))
+
+        with pytest.raises(llm.AuthenticationFailure) as exc_info:
+            llm.chat("hi")
+
+        assert "Authentication Fails" in str(exc_info.value)
+        assert not isinstance(exc_info.value, (llm.NetworkFailure, llm.BadRequestFailure))
+
+    def test_connection_error_is_reclassified_as_network_failure(self, monkeypatch):
+        original = openai.APIConnectionError(message="Connection error.", request=_fake_request())
+        monkeypatch.setattr(llm, "get_client", lambda: _client_raising(original))
+
+        with pytest.raises(llm.NetworkFailure) as exc_info:
+            llm.chat("hi")
+
+        assert "Connection error" in str(exc_info.value)
+
+    def test_timeout_error_is_also_reclassified_as_network_failure(self, monkeypatch):
+        # openai.APITimeoutError 是 openai.APIConnectionError 的子类——见
+        # docs/00-02-error-handling.md，断网和超时对调用方来说是同一类问题
+        # （"这次没打通"），所以一个 except 分支能同时覆盖两种情况。
+        original = openai.APITimeoutError(request=_fake_request())
+        monkeypatch.setattr(llm, "get_client", lambda: _client_raising(original))
+
+        with pytest.raises(llm.NetworkFailure):
+            llm.chat("hi")
+
+    def test_bad_request_error_is_reclassified(self, monkeypatch):
+        response = httpx2.Response(400, request=_fake_request())
+        original = openai.BadRequestError(
+            "The supported API model names are deepseek-flash, deepseek-v4-pro, "
+            "but you passed deepseek-chat-nonexistent-model.",
+            response=response,
+            body=None,
+        )
+        monkeypatch.setattr(llm, "get_client", lambda: _client_raising(original))
+
+        with pytest.raises(llm.BadRequestFailure) as exc_info:
+            llm.chat("hi")
+
+        assert "supported API model names" in str(exc_info.value)
+
+    def test_all_three_failures_share_a_common_base_class(self):
+        assert issubclass(llm.AuthenticationFailure, llm.ChatError)
+        assert issubclass(llm.NetworkFailure, llm.ChatError)
+        assert issubclass(llm.BadRequestFailure, llm.ChatError)
