@@ -5,3 +5,4 @@ __pycache__/
 *.egg-info/
 .pytest_cache/
 .DS_Store
+learning-plans/Reliable_Agent_Learning_Plan.md
