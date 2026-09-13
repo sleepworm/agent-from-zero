@@ -7,13 +7,26 @@ import pytest
 from src.agent import llm
 
 
-def _fake_client(response_text: str) -> MagicMock:
+def _fake_client(
+    response_text: str,
+    *,
+    prompt_tokens: int = 10,
+    completion_tokens: int = 5,
+    cache_hit_tokens: int = 0,
+    cache_miss_tokens: int = 10,
+) -> MagicMock:
     fake_message = MagicMock()
     fake_message.content = response_text
     fake_choice = MagicMock()
     fake_choice.message = fake_message
+    fake_usage = MagicMock()
+    fake_usage.prompt_tokens = prompt_tokens
+    fake_usage.completion_tokens = completion_tokens
+    fake_usage.prompt_cache_hit_tokens = cache_hit_tokens
+    fake_usage.prompt_cache_miss_tokens = cache_miss_tokens
     fake_response = MagicMock()
     fake_response.choices = [fake_choice]
+    fake_response.usage = fake_usage
     fake_client = MagicMock()
     fake_client.chat.completions.create.return_value = fake_response
     return fake_client
@@ -35,7 +48,7 @@ def test_chat_returns_the_model_text(monkeypatch):
 
     result = llm.chat("Say hello to Alex")
 
-    assert result == "Hello, Alex!"
+    assert result.text == "Hello, Alex!"
 
 
 def test_chat_sends_system_and_user_messages(monkeypatch):
@@ -73,6 +86,53 @@ def test_get_client_reads_api_key_from_env(monkeypatch):
     assert client.api_key == "test-key-123"
     assert client.base_url is not None
     llm._client = None  # 用完清理，避免影响后续测试
+
+
+class TestChatResult:
+    """验证 chat() 返回的 ChatResult 里，token 计数、成本估算是不是真的
+    忠实反映了 response.usage 里的数字，不是这一版自己编出来的。延迟本身
+    是真实时钟量出来的，测试里只断言"非负"，不断言具体数值。"""
+
+    def test_token_counts_come_from_response_usage(self, monkeypatch):
+        fake_client = _fake_client("ok", prompt_tokens=123, completion_tokens=45)
+        monkeypatch.setattr(llm, "get_client", lambda: fake_client)
+
+        result = llm.chat("hi")
+
+        assert result.tokens_in == 123
+        assert result.tokens_out == 45
+
+    def test_cache_hit_and_miss_tokens_are_reported_separately(self, monkeypatch):
+        fake_client = _fake_client("ok", cache_hit_tokens=80, cache_miss_tokens=20)
+        monkeypatch.setattr(llm, "get_client", lambda: fake_client)
+
+        result = llm.chat("hi")
+
+        assert result.cache_hit_tokens == 80
+        assert result.cache_miss_tokens == 20
+
+    def test_latency_is_measured_and_non_negative(self, monkeypatch):
+        fake_client = _fake_client("ok")
+        monkeypatch.setattr(llm, "get_client", lambda: fake_client)
+
+        result = llm.chat("hi")
+
+        assert result.latency_ms >= 0
+
+    def test_estimated_cost_matches_the_pricing_table(self, monkeypatch):
+        fake_client = _fake_client(
+            "ok", cache_hit_tokens=1_000_000, cache_miss_tokens=1_000_000, completion_tokens=1_000_000
+        )
+        monkeypatch.setattr(llm, "get_client", lambda: fake_client)
+
+        result = llm.chat("hi")
+
+        expected = (
+            llm.PRICE_PER_MILLION_TOKENS_USD["input_cache_hit"]
+            + llm.PRICE_PER_MILLION_TOKENS_USD["input_cache_miss"]
+            + llm.PRICE_PER_MILLION_TOKENS_USD["output"]
+        )
+        assert result.estimated_cost_usd == pytest.approx(expected)
 
 
 class TestFailureClassification:

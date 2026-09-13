@@ -19,7 +19,7 @@ pytest                 # 跑测试（全部用 mock，不需要真实 API Key）
 
 | Phase | 主题 | 状态 |
 |---|---|---|
-| 0 | Hello LLM（[0.1](docs/00-01-basic-chat.md) / [0.2](docs/00-02-error-handling.md) 完成，0.3 待做） | |
+| 0 | Hello LLM（[0.1](docs/00-01-basic-chat.md) / [0.2](docs/00-02-error-handling.md) / [0.3](docs/00-03-cost-latency-tracking.md)） | ✅ |
 | 1 | 第一个 Tool：查库存 | |
 | 2 | 多 Tool + 自己实现 Agent Loop | |
 | 3 | Tool Validation | |
@@ -62,7 +62,7 @@ agent-from-zero/
 └── failure_taxonomy.md    # 活文档，Phase 4.3 起持续更新，Phase 18.5 做最终核对
 ```
 
-完整细节见 [`learning-plans/`](learning-plans/) 下的执行计划文档。
+完整细节见 [`learning-plans/`](learning-plans/) 下的执行计划文档。待深入研究、暂时先记下来不细究的问题见 [`TODO.md`](TODO.md)。
 
 ## 这个仓库的来历
 
