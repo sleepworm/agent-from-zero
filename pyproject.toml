@@ -1,0 +1,25 @@
+[project]
+name = "agent-from-zero"
+version = "0.0.1"
+description = "Inventory & Quote Agent, hand-rolled one commit at a time -- from a single chat completion to a production-grade Agent."
+requires-python = ">=3.11"
+dependencies = [
+    "openai>=1.50.0",
+    "python-dotenv>=1.0.1",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=8.3.0",
+]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["src*"]
+
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
