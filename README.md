@@ -1,8 +1,10 @@
 # Agent From Zero
 
-Inventory & Quote Agent —— 从 Hello LLM 一路手写到 Production-Grade Agent，每个 commit 只引入一个概念，每个概念都先设计破坏性实验、再修复。完整执行计划见 [`learning-plans/Reliable_Agent_Learning_Plan.md`](learning-plans/Reliable_Agent_Learning_Plan.md)。
+大语言模型擅长理解上下文、生成文本，却不会自动知道公司的实时库存，也不能自己执行程序。Agent 是围绕模型搭建的一套应用程序：模型判断下一步，程序调用外部工具并返回结果，两者在一个受控制的循环里协作，直到完成任务或安全停止。
 
-配套的长文课程草稿在独立仓库 [`docs`](https://github.com/sleepworm/docs) 的 `agent-from-zero-docs/` 子目录下维护——本仓库 `docs/*.md` 是每个 commit 的技术笔记，那边是整理成篇的发布稿，两者不是一份内容。
+这个仓库从一次最小的模型调用开始，亲手搭建一个 Inventory & Quote Agent（库存与报价助手）——一个 commit 只引入一个概念，每个概念都先设计破坏性实验、再动手修复。
+
+> 一个只会生成文本的模型，怎样逐步成长为能做事、会失败、可恢复，而且能够证明自己表现如何的可靠 Agent？
 
 ## 怎么跑
 
@@ -15,29 +17,14 @@ pytest                 # 跑测试（全部用 mock，不需要真实 API Key）
 
 ## 章节目录
 
-跟随 commit 顺序阅读，每个 commit 对应 `docs/` 下一篇同名文档（命名格式 `<phase>-<commit>-slug.md`），可以用 `git checkout <tag>` 回到对应阶段重新跑一遍。Tag 格式 `v0.<phase>.<commit>-slug`，完整 Phase/commit 拆解见执行计划第 4 节。
-
-| Phase | 主题 | 状态 |
+| 篇目 | Tag | 这一篇解决的问题 |
 |---|---|---|
-| 0 | Hello LLM（[0.1](docs/00-01-basic-chat.md) / [0.2](docs/00-02-error-handling.md) / [0.3](docs/00-03-cost-latency-tracking.md)） | ✅ |
-| 1 | 第一个 Tool：查库存（[1.1](docs/01-01-inventory-tool-schema.md) 完成，1.2/1.3 待做） | |
-| 2 | 多 Tool + 自己实现 Agent Loop | |
-| 3 | Tool Validation | |
-| 4 | 主动破坏：Tool Failure Injection | |
-| 5 | 从失败中恢复：Retry / Timeout / Idempotency / Circuit Breaker | |
-| 6 | Context & Memory | |
-| 7 | Context Pruning | |
-| 8 | Tracing / Trajectory | |
-| 9 | Planning：定价 + 折扣 + 报价 | |
-| 10 | Evaluation：Golden Dataset + LLM-as-Judge | |
-| 11 | Regression Testing / Quality Gate | |
-| 12 | Permission & Guardrails（+ HITL 审批） | |
-| 13 | State & Checkpoint | |
-| 14 | Observability：Metrics + Dashboard | |
-| 15 | Subagent / Multi-Agent | |
-| 16 | 企业系统集成：真实 DB / CRM / API + MCP | |
-| 17 | 换框架重做：MiniCordis / DeepSeek Harness / LangChain / LangGraph / LangSmith | |
-| 18 | Production Architecture & Reliability Platform | |
+| [0.1 先让程序和模型说上第一句话](docs/00-01-basic-chat.md) | `v0.0.1-basic-chat` | 认识 Chat Completion 和请求边界；看清"会生成文本"不等于"知道业务事实" |
+| [0.2 模型调用失败时，程序应该看见什么](docs/00-02-error-handling.md) | `v0.0.2-error-handling` | 真实触发认证、网络和请求错误，把 Provider 异常翻译成应用可以采取行动的错误类型 |
+| [0.3 一次回答到底花了多少时间和钱](docs/00-03-cost-latency-tracking.md) | `v0.0.3-cost-latency-tracking` | 为每次模型调用记录 token、延迟和估算成本 |
+| [1.1 先给模型一份查库存的说明书](docs/01-01-inventory-tool-schema.md) | `v0.1.1-inventory-tool-schema` | 写出真实库存函数和 Tool Schema，分清可执行实现和模型可读契约 |
+
+`git checkout <tag>` 能回到任意一步重新跑一遍；`git diff <tag1> <tag2>` 能直接看某一步真正改了什么。这张表只列已经写完的章节，随着新 commit 落地继续往下加。
 
 ## 项目原则
 
@@ -51,19 +38,11 @@ pytest                 # 跑测试（全部用 mock，不需要真实 API Key）
 ```text
 agent-from-zero/
 ├── src/
-│   ├── tools/            # get_inventory / calculate_price / create_quote 等
-│   ├── agent/             # loop / memory / guardrails / state
-│   └── observability/     # tracing / metrics
+│   ├── tools/            # get_inventory 等
+│   └── agent/             # llm.py
 ├── tests/                 # 每个 commit 对应的测试
 ├── docs/                  # 每个 commit 对应的教材章节
-├── eval/                  # Golden Dataset + Regression 报告（Phase 10 起）
-├── frameworks/             # MiniCordis / DeepSeek Harness / LangChain / LangGraph 重写版本（Phase 17 起）
-├── learning-plans/        # 执行计划文档（Phase/Commit 详细拆解）
-└── failure_taxonomy.md    # 活文档，Phase 4.3 起持续更新，Phase 18.5 做最终核对
+└── failure_taxonomy.md    # 活文档，从系统性触发失败的那个 commit 起持续更新
 ```
 
-完整细节见 [`learning-plans/`](learning-plans/) 下的执行计划文档。待深入研究、暂时先记下来不细究的问题见 [`TODO.md`](TODO.md)。
-
-## 这个仓库的来历
-
-这是 Agent Design 教学项目的第二次尝试——沿用之前已经验证过的 Phase/Commit 大纲和章节文档模板（Problem / Minimal Example / Break It·Observe / Implement Fix / Industrial Solution / Evaluate / Exercises / What We Learned），但代码和每篇文档都重新手写，不是从旧仓库直接搬运历史。旧的执行计划文档本身作为路线图被带了过来，具体的实现和教材文字是全新的。
+待深入研究、暂时先记下来不细究的问题见 [`TODO.md`](TODO.md)。
